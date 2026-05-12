@@ -19,3 +19,18 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# ---- Security: Strip all Log calls in release ----
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+    public static int w(...);
+    public static int e(...);
+    public static int wtf(...);
+}
+
+# ---- Gson: Keep model field names for correct JSON (de)serialization ----
+-keepclassmembers class com.example.myapplication.data.model.** {
+    <fields>;
+}

@@ -15,7 +15,7 @@ import org.koin.compose.koinInject
 fun AppNavigation() {
     val navController = rememberNavController()
     val sessionManager: SessionManager = koinInject()
-    val isLoggedIn by sessionManager.isLoggedIn.collectAsState(initial = false)
+    val isLoggedIn by sessionManager.isLoggedIn.collectAsState()
 
     val startDestination = if (isLoggedIn) "main" else "login"
 

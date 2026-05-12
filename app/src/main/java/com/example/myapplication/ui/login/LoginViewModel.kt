@@ -31,7 +31,7 @@ class LoginViewModel(
             _loginState.value = LoginState.Loading
             val result = repository.login(request)
             result.onSuccess { response ->
-                response.token?.let { sessionManager.saveAuthToken(it) }
+                response.data?.token?.let { sessionManager.saveAuthToken(it) }
                 _loginState.value = LoginState.Success(response)
             }.onFailure { exception ->
                 _loginState.value = LoginState.Error(exception.message ?: "Unknown error")

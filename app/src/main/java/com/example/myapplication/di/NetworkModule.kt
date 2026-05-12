@@ -6,15 +6,19 @@ import okhttp3.logging.HttpLoggingInterceptor
 import org.koin.dsl.module
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import com.example.myapplication.AppConfig
 import com.example.myapplication.data.remote.LoginApi
+import com.example.myapplication.data.remote.ProfileApi
 import com.example.myapplication.data.local.SessionManager
 
 val networkModule = module {
     single {
         val sessionManager: SessionManager = get()
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
+        val loggingInterceptor = if (AppConfig.IS_DEBUG) {
+            HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BODY
+            }
+        } else null
         val headerInterceptor = Interceptor { chain ->
             val original = chain.request()
             val requestBuilder = original.newBuilder()
@@ -29,15 +33,17 @@ val networkModule = module {
             chain.proceed(request)
         }
 
-        OkHttpClient.Builder()
+        val clientBuilder = OkHttpClient.Builder()
             .addInterceptor(headerInterceptor)
-            .addInterceptor(loggingInterceptor)
-            .build()
+        if (loggingInterceptor != null) {
+            clientBuilder.addInterceptor(loggingInterceptor)
+        }
+        clientBuilder.build()
     }
 
     single {
         Retrofit.Builder()
-            .baseUrl("https://itga.accentuates.co.id/mitraapi/")
+            .baseUrl("https://itga.accentuates.co.id/itga/")
             .client(get())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -45,5 +51,9 @@ val networkModule = module {
 
     single<LoginApi> {
         get<Retrofit>().create(LoginApi::class.java)
+    }
+
+    single<ProfileApi> {
+        get<Retrofit>().create(ProfileApi::class.java)
     }
 }
