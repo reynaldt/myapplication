@@ -7,6 +7,7 @@ import org.koin.dsl.module
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import com.example.myapplication.AppConfig
+import com.example.myapplication.data.remote.InventoryApi
 import com.example.myapplication.data.remote.LoginApi
 import com.example.myapplication.data.remote.ProfileApi
 import com.example.myapplication.data.local.SessionManager
@@ -55,5 +56,9 @@ val networkModule = module {
 
     single<ProfileApi> {
         get<Retrofit>().create(ProfileApi::class.java)
+    }
+
+    single<InventoryApi> {
+        get<Retrofit>().create(InventoryApi::class.java)
     }
 }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -23,10 +24,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.myapplication.ui.about.AboutScreen
 import com.example.myapplication.ui.home.HomeScreen
+import com.example.myapplication.ui.inventory.InventoryScreen
 import com.example.myapplication.ui.profile.ProfileScreen
 
 sealed class BottomNavItem(val route: String, val title: String, val icon: ImageVector) {
     object Home : BottomNavItem("home", "Home", Icons.Default.Home)
+    object Inventory : BottomNavItem("inventory", "Inventory", Icons.Default.Inventory)
     object Profile : BottomNavItem("profile", "Profile", Icons.Default.Person)
     object About : BottomNavItem("about", "About", Icons.Default.Info)
 }
@@ -36,6 +39,7 @@ fun MainScreen() {
     val navController = rememberNavController()
     val items = listOf(
         BottomNavItem.Home,
+        BottomNavItem.Inventory,
         BottomNavItem.Profile,
         BottomNavItem.About
     )
@@ -80,6 +84,7 @@ fun MainScreen() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(BottomNavItem.Home.route) { HomeScreen() }
+            composable(BottomNavItem.Inventory.route) { InventoryScreen() }
             composable(BottomNavItem.Profile.route) { ProfileScreen() }
             composable(BottomNavItem.About.route) { AboutScreen() }
         }
