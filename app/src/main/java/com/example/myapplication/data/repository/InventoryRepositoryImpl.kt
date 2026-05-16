@@ -1,6 +1,7 @@
 package com.example.myapplication.data.repository
 
 import com.example.myapplication.data.model.AddInventoryResponse
+import com.example.myapplication.data.model.InventoryListResponse
 import com.example.myapplication.data.remote.InventoryApi
 import com.example.myapplication.domain.repository.InventoryRepository
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -14,7 +15,33 @@ class InventoryRepositoryImpl(
     private val api: InventoryApi
 ) : InventoryRepository {
 
+    override suspend fun getInventory(): Result<InventoryListResponse> {
+        return try {
+            val response = api.getInventory()
+            if (response.isSuccessful) {
+                response.body()?.let {
+                    Result.success(it)
+                } ?: Result.failure(Exception("Empty response body"))
+            } else {
+                val errorString = response.errorBody()?.string()
+                val errorMessage = try {
+                    if (errorString != null) {
+                        JSONObject(errorString).optString("message", "Failed to load inventory")
+                    } else {
+                        "Failed with code: ${response.code()}"
+                    }
+                } catch (e: Exception) {
+                    "Failed with code: ${response.code()}"
+                }
+                Result.failure(Exception(errorMessage))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Network error occurred"))
+        }
+    }
+
     override suspend fun addInventory(
+        movementType: String,
         type: String,
         description: String,
         pic: String,
@@ -30,6 +57,7 @@ class InventoryRepositoryImpl(
             )
 
             val response = api.addInventory(
+                movement = movementType.toRequestBody(textMediaType),
                 type = type.toRequestBody(textMediaType),
                 description = description.toRequestBody(textMediaType),
                 pic = pic.toRequestBody(textMediaType),

@@ -3,6 +3,7 @@ package com.example.myapplication.ui.inventory
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.myapplication.data.model.AddInventoryResponse
+import com.example.myapplication.data.model.InventoryListResponse
 import com.example.myapplication.domain.repository.InventoryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +18,13 @@ sealed class AddInventoryState {
     data class Error(val message: String) : AddInventoryState()
 }
 
+sealed class InventoryListState {
+    object Idle : InventoryListState()
+    object Loading : InventoryListState()
+    data class Success(val response: InventoryListResponse) : InventoryListState()
+    data class Error(val message: String) : InventoryListState()
+}
+
 class InventoryViewModel(
     private val repository: InventoryRepository
 ) : ViewModel() {
@@ -24,16 +32,35 @@ class InventoryViewModel(
     private val _addInventoryState = MutableStateFlow<AddInventoryState>(AddInventoryState.Idle)
     val addInventoryState: StateFlow<AddInventoryState> = _addInventoryState.asStateFlow()
 
-    fun addInventory(type: String, description: String, pic: String, picture: File) {
+    private val _inventoryListState = MutableStateFlow<InventoryListState>(InventoryListState.Idle)
+    val inventoryListState: StateFlow<InventoryListState> = _inventoryListState.asStateFlow()
+
+    init {
+        loadInventory()
+    }
+
+    fun loadInventory() {
+        viewModelScope.launch {
+            _inventoryListState.value = InventoryListState.Loading
+            repository.getInventory()
+                .onSuccess { _inventoryListState.value = InventoryListState.Success(it) }
+                .onFailure { _inventoryListState.value = InventoryListState.Error(it.message ?: "Unknown error") }
+        }
+    }
+
+    fun addInventory(movementType: String, type: String, description: String, pic: String, picture: File) {
         viewModelScope.launch {
             _addInventoryState.value = AddInventoryState.Loading
-            repository.addInventory(type, description, pic, picture)
-                .onSuccess { _addInventoryState.value = AddInventoryState.Success(it) }
+            repository.addInventory(movementType, type, description, pic, picture)
+                .onSuccess { 
+                    _addInventoryState.value = AddInventoryState.Success(it)
+                    loadInventory()
+                }
                 .onFailure { _addInventoryState.value = AddInventoryState.Error(it.message ?: "Unknown error") }
         }
     }
 
-    fun resetState() {
+    fun resetAddState() {
         _addInventoryState.value = AddInventoryState.Idle
     }
 }

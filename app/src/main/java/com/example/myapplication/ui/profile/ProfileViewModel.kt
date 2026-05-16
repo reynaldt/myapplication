@@ -2,6 +2,7 @@ package com.example.myapplication.ui.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.myapplication.data.local.SessionManager
 import com.example.myapplication.data.model.ProfileResponse
 import com.example.myapplication.domain.repository.ProfileRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,7 +18,8 @@ sealed class ProfileState {
 }
 
 class ProfileViewModel(
-    private val repository: ProfileRepository
+    private val repository: ProfileRepository,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     private val _profileState = MutableStateFlow<ProfileState>(ProfileState.Idle)
@@ -34,5 +36,9 @@ class ProfileViewModel(
                 .onSuccess { _profileState.value = ProfileState.Success(it) }
                 .onFailure { _profileState.value = ProfileState.Error(it.message ?: "Unknown error") }
         }
+    }
+
+    fun logout() {
+        sessionManager.clearSession()
     }
 }

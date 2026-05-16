@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
@@ -118,6 +119,14 @@ fun ProfileScreen(
                                 value = data?.email ?: "-"
                             )
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(onClick = { viewModel.logout() }) {
+                        Icon(Icons.Default.Logout, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Logout")
                     }
                 }
             }
