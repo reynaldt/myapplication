@@ -35,6 +35,12 @@ class InventoryViewModel(
     private val _inventoryListState = MutableStateFlow<InventoryListState>(InventoryListState.Idle)
     val inventoryListState: StateFlow<InventoryListState> = _inventoryListState.asStateFlow()
 
+    private val _checkoutState = MutableStateFlow<AddInventoryState>(AddInventoryState.Idle)
+    val checkoutState: StateFlow<AddInventoryState> = _checkoutState.asStateFlow()
+
+    private val _logsState = MutableStateFlow<List<com.example.myapplication.data.local.entity.LogEntity>>(emptyList())
+    val logsState: StateFlow<List<com.example.myapplication.data.local.entity.LogEntity>> = _logsState.asStateFlow()
+
     init {
         loadInventory()
     }
@@ -60,7 +66,31 @@ class InventoryViewModel(
         }
     }
 
+    fun checkoutItem(id: String, picName: String) {
+        viewModelScope.launch {
+            _checkoutState.value = AddInventoryState.Loading
+            repository.checkoutInventory(id, picName)
+                .onSuccess {
+                    _checkoutState.value = AddInventoryState.Success(AddInventoryResponse(true, "Checkout successful"))
+                    loadInventory()
+                    loadLogs()
+                }
+                .onFailure { _checkoutState.value = AddInventoryState.Error(it.message ?: "Unknown error") }
+        }
+    }
+
+    fun loadLogs() {
+        viewModelScope.launch {
+            repository.getLogs()
+                .onSuccess { _logsState.value = it }
+        }
+    }
+
     fun resetAddState() {
         _addInventoryState.value = AddInventoryState.Idle
+    }
+    
+    fun resetCheckoutState() {
+        _checkoutState.value = AddInventoryState.Idle
     }
 }

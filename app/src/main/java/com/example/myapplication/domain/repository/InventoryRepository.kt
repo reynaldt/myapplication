@@ -14,4 +14,8 @@ interface InventoryRepository {
         pic: String,
         picture: File
     ): Result<AddInventoryResponse>
+
+    suspend fun checkoutInventory(id: String, picName: String): Result<Boolean>
+
+    suspend fun getLogs(): Result<List<com.example.myapplication.data.local.entity.LogEntity>>
 }

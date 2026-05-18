@@ -11,26 +11,18 @@ class LoginRepositoryImpl(
 
     override suspend fun login(request: LoginRequest): Result<LoginResponse> {
         return try {
-            val response = api.login(request)
-            if (response.isSuccessful) {
-                response.body()?.let {
-                    Result.success(it)
-                } ?: Result.failure(Exception("Empty response body"))
-            } else {
-                val errorString = response.errorBody()?.string()
-                val errorMessage = try {
-                    if (errorString != null) {
-                        org.json.JSONObject(errorString).optString("message", "Login failed")
-                    } else {
-                        "Login failed with code: ${response.code()}"
-                    }
-                } catch (e: Exception) {
-                    "Login failed with code: ${response.code()}"
-                }
-                Result.failure(Exception(errorMessage))
-            }
+            Result.success(
+                LoginResponse(
+                    status = true,
+                    message = "Login offline success",
+                    data = com.example.myapplication.data.model.LoginData(
+                        token = "offline_token",
+                        tokenType = "Bearer"
+                    )
+                )
+            )
         } catch (e: Exception) {
-            Result.failure(Exception(e.message ?: "Network error occurred"))
+            Result.failure(Exception(e.message ?: "Local error occurred"))
         }
     }
 }

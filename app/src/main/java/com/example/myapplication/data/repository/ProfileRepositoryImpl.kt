@@ -10,26 +10,19 @@ class ProfileRepositoryImpl(
 
     override suspend fun getProfile(): Result<ProfileResponse> {
         return try {
-            val response = api.getProfile()
-            if (response.isSuccessful) {
-                response.body()?.let {
-                    Result.success(it)
-                } ?: Result.failure(Exception("Empty response body"))
-            } else {
-                val errorString = response.errorBody()?.string()
-                val errorMessage = try {
-                    if (errorString != null) {
-                        org.json.JSONObject(errorString).optString("message", "Failed to load profile")
-                    } else {
-                        "Failed with code: ${response.code()}"
-                    }
-                } catch (e: Exception) {
-                    "Failed with code: ${response.code()}"
-                }
-                Result.failure(Exception(errorMessage))
-            }
+            Result.success(
+                ProfileResponse(
+                    status = true,
+                    message = "Success",
+                    data = com.example.myapplication.data.model.ProfileData(
+                        idMitra = "offline_01",
+                        mitraName = "Offline User",
+                        email = "offline@example.com"
+                    )
+                )
+            )
         } catch (e: Exception) {
-            Result.failure(Exception(e.message ?: "Network error occurred"))
+            Result.failure(Exception(e.message ?: "Local error occurred"))
         }
     }
 }

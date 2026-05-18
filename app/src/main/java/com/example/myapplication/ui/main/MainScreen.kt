@@ -27,6 +27,9 @@ import com.example.myapplication.ui.home.HomeScreen
 import com.example.myapplication.ui.inventory.InventoryScreen
 import com.example.myapplication.ui.profile.ProfileScreen
 
+import com.example.myapplication.ui.inventory.InventoryViewModel
+import org.koin.androidx.compose.koinViewModel
+
 sealed class BottomNavItem(val route: String, val title: String, val icon: ImageVector) {
     object Home : BottomNavItem("home", "Home", Icons.Default.Home)
     object Inventory : BottomNavItem("inventory", "Inventory", Icons.Default.Inventory)
@@ -35,7 +38,9 @@ sealed class BottomNavItem(val route: String, val title: String, val icon: Image
 }
 
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    sharedViewModel: InventoryViewModel = koinViewModel()
+) {
     val navController = rememberNavController()
     val items = listOf(
         BottomNavItem.Home,
@@ -83,8 +88,8 @@ fun MainScreen() {
             startDestination = BottomNavItem.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(BottomNavItem.Home.route) { HomeScreen() }
-            composable(BottomNavItem.Inventory.route) { InventoryScreen() }
+            composable(BottomNavItem.Home.route) { HomeScreen(sharedViewModel) }
+            composable(BottomNavItem.Inventory.route) { InventoryScreen(sharedViewModel) }
             composable(BottomNavItem.Profile.route) { ProfileScreen() }
             composable(BottomNavItem.About.route) { AboutScreen() }
         }

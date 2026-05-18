@@ -29,7 +29,8 @@ import org.koin.androidx.compose.koinViewModel
 private enum class InventoryTab {
     MAIN,
     INBOUND,
-    OUTBOUND
+    CHECKOUT,
+    LOGS
 }
 
 @Composable
@@ -42,7 +43,8 @@ fun InventoryScreen(
         InventoryTab.MAIN -> {
             InventoryMainScreen(
                 onAddInboundClick = { currentTab = InventoryTab.INBOUND },
-                onViewOutboundClick = { currentTab = InventoryTab.OUTBOUND }
+                onCheckoutClick = { currentTab = InventoryTab.CHECKOUT },
+                onViewLogsClick = { currentTab = InventoryTab.LOGS }
             )
         }
 
@@ -53,8 +55,15 @@ fun InventoryScreen(
             )
         }
 
-        InventoryTab.OUTBOUND -> {
-            OutboundListScreen(
+        InventoryTab.CHECKOUT -> {
+            CheckoutScreen(
+                viewModel = viewModel,
+                onBack = { currentTab = InventoryTab.MAIN }
+            )
+        }
+        
+        InventoryTab.LOGS -> {
+            LogsScreen(
                 viewModel = viewModel,
                 onBack = { currentTab = InventoryTab.MAIN }
             )
@@ -65,7 +74,8 @@ fun InventoryScreen(
 @Composable
 private fun InventoryMainScreen(
     onAddInboundClick: () -> Unit,
-    onViewOutboundClick: () -> Unit
+    onCheckoutClick: () -> Unit,
+    onViewLogsClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -101,7 +111,7 @@ private fun InventoryMainScreen(
             }
 
             Button(
-                onClick = onViewOutboundClick,
+                onClick = onCheckoutClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 32.dp),
@@ -113,7 +123,24 @@ private fun InventoryMainScreen(
                     modifier = Modifier.padding(12.dp)
                 ) {
                     Icon(Icons.Default.ListAlt, contentDescription = null)
-                    Text("View Outbound")
+                    Text("Checkout Inventory")
+                }
+            }
+            
+            Button(
+                onClick = onViewLogsClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(12.dp)
+                ) {
+                    Icon(Icons.Default.ListAlt, contentDescription = null)
+                    Text("View Logs")
                 }
             }
         }

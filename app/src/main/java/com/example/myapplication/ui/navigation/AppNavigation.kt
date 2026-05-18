@@ -28,6 +28,8 @@ fun AppNavigation() {
     val currentRoute = navBackStackEntry?.destination?.route
 
     LaunchedEffect(isLoggedIn) {
+        // Commented out to force offline mode
+        /*
         if (isLoggedIn) {
             if (currentRoute != AppRoute.Main) {
                 navController.navigate(AppRoute.Main) {
@@ -47,9 +49,10 @@ fun AppNavigation() {
                 }
             }
         }
+        */
     }
 
-    val startDestination = if (isLoggedIn) AppRoute.Main else AppRoute.Login
+    val startDestination = AppRoute.Main // if (isLoggedIn) AppRoute.Main else AppRoute.Login
 
     NavHost(navController = navController, startDestination = startDestination) {
         composable(AppRoute.Login) {

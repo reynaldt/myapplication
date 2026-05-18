@@ -12,31 +12,34 @@ import org.json.JSONObject
 import java.io.File
 
 class InventoryRepositoryImpl(
-    private val api: InventoryApi
+    private val dao: com.example.myapplication.data.local.dao.InventoryDao,
+    private val logDao: com.example.myapplication.data.local.dao.LogDao
 ) : InventoryRepository {
 
     override suspend fun getInventory(): Result<InventoryListResponse> {
         return try {
-            val response = api.getInventory()
-            if (response.isSuccessful) {
-                response.body()?.let {
-                    Result.success(it)
-                } ?: Result.failure(Exception("Empty response body"))
-            } else {
-                val errorString = response.errorBody()?.string()
-                val errorMessage = try {
-                    if (errorString != null) {
-                        JSONObject(errorString).optString("message", "Failed to load inventory")
-                    } else {
-                        "Failed with code: ${response.code()}"
-                    }
-                } catch (e: Exception) {
-                    "Failed with code: ${response.code()}"
-                }
-                Result.failure(Exception(errorMessage))
+            val entities = dao.getAllInventoryItems()
+            val items = entities.map { entity ->
+                com.example.myapplication.data.model.InventoryItem(
+                    id = entity.id,
+                    type = entity.type,
+                    description = entity.description,
+                    pic = entity.pic,
+                    picture = entity.picture,
+                    movement = entity.movement,
+                    createdAt = entity.createdAt,
+                    updatedAt = entity.updatedAt
+                )
             }
+            Result.success(
+                InventoryListResponse(
+                    code = 200,
+                    message = "Success",
+                    data = items
+                )
+            )
         } catch (e: Exception) {
-            Result.failure(Exception(e.message ?: "Network error occurred"))
+            Result.failure(Exception(e.message ?: "Local DB error occurred"))
         }
     }
 
@@ -48,41 +51,64 @@ class InventoryRepositoryImpl(
         picture: File
     ): Result<AddInventoryResponse> {
         return try {
-            val textMediaType = "text/plain".toMediaTypeOrNull()
-            val imageMediaType = "image/jpeg".toMediaTypeOrNull()
-            val picturePart = MultipartBody.Part.createFormData(
-                "picture",
-                picture.name,
-                picture.asRequestBody(imageMediaType)
+            val now = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+            val entity = com.example.myapplication.data.local.entity.InventoryEntity(
+                id = System.currentTimeMillis().toString(),
+                type = type,
+                description = description,
+                pic = pic,
+                picture = picture.absolutePath,
+                movement = movementType,
+                createdAt = now,
+                updatedAt = now
             )
-
-            val response = api.addInventory(
-                movement = movementType.toRequestBody(textMediaType),
-                type = type.toRequestBody(textMediaType),
-                description = description.toRequestBody(textMediaType),
-                pic = pic.toRequestBody(textMediaType),
-                picture = picturePart
+            dao.insertInventoryItem(entity)
+            Result.success(
+                AddInventoryResponse(
+                    status = true,
+                    message = "Item saved to database"
+                )
             )
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Local DB error occurred"))
+        }
+    }
 
-            if (response.isSuccessful) {
-                response.body()?.let {
-                    Result.success(it)
-                } ?: Result.failure(Exception("Empty response body"))
-            } else {
-                val errorString = response.errorBody()?.string()
-                val errorMessage = try {
-                    if (errorString != null) {
-                        JSONObject(errorString).optString("message", "Failed to add inventory")
-                    } else {
-                        "Failed with code: ${response.code()}"
+    override suspend fun checkoutInventory(id: String, picName: String): Result<Boolean> {
+        return try {
+            val item = dao.getInventoryItemById(id)
+            if (item != null) {
+                // Delete picture file if it exists
+                item.picture?.let { path ->
+                    val file = File(path)
+                    if (file.exists()) {
+                        file.delete()
                     }
-                } catch (e: Exception) {
-                    "Failed with code: ${response.code()}"
                 }
-                Result.failure(Exception(errorMessage))
+                // Delete from DB
+                dao.deleteInventoryItem(id)
+                // Log the checkout
+                val now = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+                val log = com.example.myapplication.data.local.entity.LogEntity(
+                    message = "Item '${item.type}' (Description: ${item.description}) checked out by $picName",
+                    timestamp = now
+                )
+                logDao.insertLog(log)
+                Result.success(true)
+            } else {
+                Result.failure(Exception("Item not found"))
             }
         } catch (e: Exception) {
-            Result.failure(Exception(e.message ?: "Network error occurred"))
+            Result.failure(Exception(e.message ?: "Checkout error occurred"))
+        }
+    }
+
+    override suspend fun getLogs(): Result<List<com.example.myapplication.data.local.entity.LogEntity>> {
+        return try {
+            val logs = logDao.getAllLogs()
+            Result.success(logs)
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Failed to get logs"))
         }
     }
 }
