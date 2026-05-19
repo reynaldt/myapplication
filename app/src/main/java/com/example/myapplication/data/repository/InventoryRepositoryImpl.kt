@@ -78,17 +78,17 @@ class InventoryRepositoryImpl(
         return try {
             val item = dao.getInventoryItemById(id)
             if (item != null) {
-                // Delete picture file if it exists
-                item.picture?.let { path ->
-                    val file = File(path)
-                    if (file.exists()) {
-                        file.delete()
-                    }
-                }
-                // Delete from DB
-                dao.deleteInventoryItem(id)
-                // Log the checkout
                 val now = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+                // Construct updated item with outbound movement
+                val updatedItem = item.copy(
+                    movement = "outbound",
+                    pic = picName,
+                    updatedAt = now
+                )
+                // Insert/Replace back into DB
+                dao.insertInventoryItem(updatedItem)
+                
+                // Log the checkout
                 val log = com.example.myapplication.data.local.entity.LogEntity(
                     message = "Item '${item.type}' (Description: ${item.description}) checked out by $picName",
                     timestamp = now

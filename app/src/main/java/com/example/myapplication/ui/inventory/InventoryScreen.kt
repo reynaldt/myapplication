@@ -1,5 +1,6 @@
 package com.example.myapplication.ui.inventory
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -30,7 +32,8 @@ private enum class InventoryTab {
     MAIN,
     INBOUND,
     CHECKOUT,
-    LOGS
+    LOGS,
+    OUTBOUND
 }
 
 @Composable
@@ -39,12 +42,20 @@ fun InventoryScreen(
 ) {
     var currentTab by remember { mutableStateOf(InventoryTab.MAIN) }
 
+    // Intercept physical/system back presses if the user is inside a sub-screen
+    if (currentTab != InventoryTab.MAIN) {
+        BackHandler {
+            currentTab = InventoryTab.MAIN
+        }
+    }
+
     when (currentTab) {
         InventoryTab.MAIN -> {
             InventoryMainScreen(
                 onAddInboundClick = { currentTab = InventoryTab.INBOUND },
                 onCheckoutClick = { currentTab = InventoryTab.CHECKOUT },
-                onViewLogsClick = { currentTab = InventoryTab.LOGS }
+                onViewLogsClick = { currentTab = InventoryTab.LOGS },
+                onOutboundClick = { currentTab = InventoryTab.OUTBOUND }
             )
         }
 
@@ -68,6 +79,13 @@ fun InventoryScreen(
                 onBack = { currentTab = InventoryTab.MAIN }
             )
         }
+
+        InventoryTab.OUTBOUND -> {
+            OutboundListScreen(
+                viewModel = viewModel,
+                onBack = { currentTab = InventoryTab.MAIN }
+            )
+        }
     }
 }
 
@@ -75,7 +93,8 @@ fun InventoryScreen(
 private fun InventoryMainScreen(
     onAddInboundClick: () -> Unit,
     onCheckoutClick: () -> Unit,
-    onViewLogsClick: () -> Unit
+    onViewLogsClick: () -> Unit,
+    onOutboundClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -87,7 +106,7 @@ private fun InventoryMainScreen(
     ) {
         PrimaryTextLabel(text = "Inventory Management")
 
-        androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(vertical = 32.dp))
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(vertical = 24.dp))
 
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -124,6 +143,23 @@ private fun InventoryMainScreen(
                 ) {
                     Icon(Icons.Default.ListAlt, contentDescription = null)
                     Text("Checkout Inventory")
+                }
+            }
+            
+            Button(
+                onClick = onOutboundClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(12.dp)
+                ) {
+                    Icon(Icons.Default.Inventory, contentDescription = null)
+                    Text("Outbound Inventory")
                 }
             }
             
