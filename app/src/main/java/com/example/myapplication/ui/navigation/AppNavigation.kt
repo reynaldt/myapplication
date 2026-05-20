@@ -23,36 +23,31 @@ private object AppRoute {
 fun AppNavigation() {
     val navController = rememberNavController()
     val sessionManager: SessionManager = koinInject()
-    val isLoggedIn by sessionManager.isLoggedIn.collectAsState()
+    val currentUser by sessionManager.currentUser.collectAsState()
+    val isLoggedIn = currentUser != null
+
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
     LaunchedEffect(isLoggedIn) {
-        // Commented out to force offline mode
-        /*
         if (isLoggedIn) {
             if (currentRoute != AppRoute.Main) {
                 navController.navigate(AppRoute.Main) {
                     popUpTo(AppRoute.Login) { inclusive = true }
                     launchSingleTop = true
-                    restoreState = true
                 }
             }
         } else {
             if (currentRoute != AppRoute.Login) {
                 navController.navigate(AppRoute.Login) {
-                    popUpTo(navController.graph.findStartDestination().id) {
-                        inclusive = true
-                    }
+                    popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
                     launchSingleTop = true
-                    restoreState = true
                 }
             }
         }
-        */
     }
 
-    val startDestination = AppRoute.Main // if (isLoggedIn) AppRoute.Main else AppRoute.Login
+    val startDestination = if (isLoggedIn) AppRoute.Main else AppRoute.Login
 
     NavHost(navController = navController, startDestination = startDestination) {
         composable(AppRoute.Login) {
@@ -65,7 +60,13 @@ fun AppNavigation() {
             )
         }
         composable(AppRoute.Main) {
-            MainScreen()
+            MainScreen(
+                onLogout = {
+                    navController.navigate(AppRoute.Login) {
+                        popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                    }
+                }
+            )
         }
     }
 }

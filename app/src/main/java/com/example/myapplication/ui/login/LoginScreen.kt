@@ -1,10 +1,6 @@
 package com.example.myapplication.ui.login
 
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,16 +14,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.myapplication.data.model.LoginRequest
 import com.example.myapplication.ui.components.PrimaryButton
 import com.example.myapplication.ui.components.PrimaryOutlinedTextField
 import com.example.myapplication.ui.components.PrimaryTextLabel
@@ -49,8 +42,8 @@ fun LoginScreen(
     LaunchedEffect(state) {
         when (state) {
             is LoginState.Success -> {
-                val msg = (state as LoginState.Success).response.message ?: "Login Success!"
-                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                val user = (state as LoginState.Success).user
+                Toast.makeText(context, "Welcome, ${user.displayName}!", Toast.LENGTH_SHORT).show()
                 viewModel.resetState()
                 onLoginSuccess()
             }
@@ -85,7 +78,7 @@ fun LoginScreen(
                     .padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                PrimaryTextLabel(text = "Welcome Back")
+                PrimaryTextLabel(text = "Inventory System")
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Sign in to continue",
@@ -110,12 +103,12 @@ fun LoginScreen(
                     label = "Password",
                     leadingIcon = Icons.Default.Lock,
                     trailingIcon = {
-                        val image = if (passwordVisible)
-                            Icons.Filled.Visibility
-                        else Icons.Filled.VisibilityOff
-
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(imageVector = image, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
                         }
                     },
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -132,7 +125,7 @@ fun LoginScreen(
                 } else {
                     PrimaryButton(
                         text = "LOGIN",
-                        onClick = { viewModel.login(LoginRequest(username, password)) },
+                        onClick = { viewModel.login(username, password) },
                         enabled = username.isNotBlank() && password.isNotBlank()
                     )
                 }

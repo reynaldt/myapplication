@@ -16,7 +16,6 @@ import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -30,34 +29,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.myapplication.ui.inventory.InventoryListState
-import com.example.myapplication.ui.inventory.InventoryViewModel
+import com.example.myapplication.ui.dashboard.DashboardViewModel
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(
-    viewModel: InventoryViewModel = koinViewModel()
+    viewModel: DashboardViewModel = koinViewModel()
 ) {
-    val inventoryState by viewModel.inventoryListState.collectAsState()
-    val logs by viewModel.logsState.collectAsState()
+    val stats by viewModel.stats.collectAsState()
 
-    // Load fresh statistics on screen entry
-    LaunchedEffect(Unit) {
-        viewModel.loadInventory()
-        viewModel.loadLogs()
-    }
-
-    // Process real-time stats
-    val inboundCount = when (val state = inventoryState) {
-        is InventoryListState.Success -> state.response.data?.count { it.movement == "inbound" } ?: 0
-        else -> 0
-    }
-    val outboundCount = when (val state = inventoryState) {
-        is InventoryListState.Success -> state.response.data?.count { it.movement == "outbound" } ?: 0
-        else -> 0
-    }
-    val totalActions = logs.size
+    val inboundCount = stats.inboundCount
+    val outboundCount = stats.outboundCount
+    val totalActions = stats.totalItems
 
     val scrollState = rememberScrollState()
     

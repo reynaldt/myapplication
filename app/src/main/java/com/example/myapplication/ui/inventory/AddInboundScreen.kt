@@ -9,45 +9,15 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Badge
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -55,20 +25,15 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import com.example.myapplication.domain.model.ItemCategory
 import com.example.myapplication.ui.components.PrimaryButton
 import com.example.myapplication.ui.components.PrimaryOutlinedTextField
 import com.example.myapplication.ui.components.PrimaryTextLabel
 import org.koin.androidx.compose.koinViewModel
 import java.io.File
-
-private enum class InventoryItemType(val value: String, val label: String) {
-    LETTER("letter", "Letter"),
-    GOOD("good", "Good")
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,25 +41,28 @@ fun AddInboundScreen(
     viewModel: InventoryViewModel = koinViewModel(),
     onBack: () -> Unit = {}
 ) {
-    val state by viewModel.addInventoryState.collectAsState()
+    val operationState by viewModel.operationState.collectAsState()
     val context = LocalContext.current
 
-    var itemType by remember { mutableStateOf(InventoryItemType.GOOD) }
-    var description by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf(ItemCategory.GOODS) }
+    var itemName by remember { mutableStateOf("") }
+    var itemDescription by remember { mutableStateOf("") }
     var pic by remember { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) }
+    var notes by remember { mutableStateOf("") }
+    var quantity by remember { mutableStateOf("1") }
+    var categoryDropdownExpanded by remember { mutableStateOf(false) }
     var photoFile by remember { mutableStateOf<File?>(null) }
     var pendingPhotoFile by remember { mutableStateOf<File?>(null) }
 
     val takePictureLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
-        val capturedFile = pendingPhotoFile
-        if (success && capturedFile != null) {
-            photoFile?.takeIf { it != capturedFile }?.delete()
-            photoFile = capturedFile
+        val captured = pendingPhotoFile
+        if (success && captured != null) {
+            photoFile?.takeIf { it != captured }?.delete()
+            photoFile = captured
         } else {
-            capturedFile?.delete()
+            captured?.delete()
         }
         pendingPhotoFile = null
     }
@@ -104,35 +72,27 @@ fun AddInboundScreen(
     ) { granted ->
         if (granted) {
             val newFile = context.createInventoryImageFile()
-            val newUri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                newFile
-            )
             pendingPhotoFile = newFile
-            takePictureLauncher.launch(newUri)
+            takePictureLauncher.launch(
+                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", newFile)
+            )
         } else {
             Toast.makeText(context, "Camera permission is required", Toast.LENGTH_LONG).show()
         }
     }
 
-    LaunchedEffect(state) {
-        when (state) {
-            is AddInventoryState.Success -> {
-                val message = (state as AddInventoryState.Success).response.message ?: "Inventory added"
-                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                description = ""
-                pic = ""
-                photoFile = null
-                viewModel.resetAddState()
+    LaunchedEffect(operationState) {
+        when (val s = operationState) {
+            is OperationState.Success -> {
+                Toast.makeText(context, s.message, Toast.LENGTH_SHORT).show()
+                itemName = ""; itemDescription = ""; pic = ""; notes = ""; quantity = "1"; photoFile = null
+                viewModel.resetOperationState()
                 onBack()
             }
-
-            is AddInventoryState.Error -> {
-                Toast.makeText(context, (state as AddInventoryState.Error).message, Toast.LENGTH_LONG).show()
-                viewModel.resetAddState()
+            is OperationState.Error -> {
+                Toast.makeText(context, s.message, Toast.LENGTH_LONG).show()
+                viewModel.resetOperationState()
             }
-
             else -> Unit
         }
     }
@@ -140,7 +100,7 @@ fun AddInboundScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Add Inbound") },
+                title = { Text("Add Inbound Item") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -155,7 +115,7 @@ fun AddInboundScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(rememberScrollState())
                 .padding(innerPadding)
-                .padding(24.dp),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Card(
@@ -168,41 +128,49 @@ fun AddInboundScreen(
                     modifier = Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    PrimaryTextLabel(text = "Item Information")
+
+                    // Category dropdown
                     ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = !expanded }
+                        expanded = categoryDropdownExpanded,
+                        onExpandedChange = { categoryDropdownExpanded = !categoryDropdownExpanded }
                     ) {
                         OutlinedTextField(
-                            value = itemType.label,
+                            value = "[${selectedCategory.code}] ${selectedCategory.label}",
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Item Type") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            label = { Text("Category") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded) },
                             modifier = Modifier
                                 .menuAnchor()
                                 .fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         )
                         ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
+                            expanded = categoryDropdownExpanded,
+                            onDismissRequest = { categoryDropdownExpanded = false }
                         ) {
-                            InventoryItemType.values().forEach { option ->
+                            ItemCategory.entries.forEach { cat ->
                                 DropdownMenuItem(
-                                    text = { Text(option.label) },
-                                    onClick = {
-                                        itemType = option
-                                        expanded = false
-                                    }
+                                    text = { Text("[${cat.code}] ${cat.label}") },
+                                    onClick = { selectedCategory = cat; categoryDropdownExpanded = false }
                                 )
                             }
                         }
                     }
 
                     PrimaryOutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        label = "Description",
+                        value = itemName,
+                        onValueChange = { itemName = it },
+                        label = "Item Name",
+                        leadingIcon = Icons.Default.Label,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                    )
+
+                    PrimaryOutlinedTextField(
+                        value = itemDescription,
+                        onValueChange = { itemDescription = it },
+                        label = "Description (optional)",
                         leadingIcon = Icons.Default.Description,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                     )
@@ -210,100 +178,92 @@ fun AddInboundScreen(
                     PrimaryOutlinedTextField(
                         value = pic,
                         onValueChange = { pic = it },
-                        label = "PIC",
+                        label = "PIC (Person-in-Charge)",
                         leadingIcon = Icons.Default.Badge,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                    )
+
+                    PrimaryOutlinedTextField(
+                        value = quantity,
+                        onValueChange = { if (it.all(Char::isDigit)) quantity = it },
+                        label = "Quantity",
+                        leadingIcon = Icons.Default.Numbers,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                    )
+
+                    PrimaryOutlinedTextField(
+                        value = notes,
+                        onValueChange = { notes = it },
+                        label = "Notes (optional)",
+                        leadingIcon = Icons.Default.Notes,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
                     )
 
-                    PhotoCaptureBox(
-                        photoFile = photoFile,
-                        onTakePhoto = {
-                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                                val newFile = context.createInventoryImageFile()
-                                val newUri = FileProvider.getUriForFile(
-                                    context,
-                                    "${context.packageName}.fileprovider",
-                                    newFile
+                    // Photo capture
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "Photo Evidence",
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        photoFile?.let { file ->
+                            val bitmap = remember(file.absolutePath) { BitmapFactory.decodeFile(file.absolutePath) }
+                            if (bitmap != null) {
+                                Image(
+                                    bitmap = bitmap.asImageBitmap(),
+                                    contentDescription = "Captured photo",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(220.dp)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)),
+                                    contentScale = ContentScale.Crop
                                 )
-                                pendingPhotoFile = newFile
-                                takePictureLauncher.launch(newUri)
-                            } else {
-                                requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                             }
                         }
-                    )
-
-                    if (state is AddInventoryState.Loading) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                            contentAlignment = Alignment.Center
+                        OutlinedButton(
+                            onClick = {
+                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                    val newFile = context.createInventoryImageFile()
+                                    pendingPhotoFile = newFile
+                                    takePictureLauncher.launch(
+                                        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", newFile)
+                                    )
+                                } else {
+                                    requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
+                            Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (photoFile == null) "Take Picture" else "Retake Picture")
+                        }
+                    }
+
+                    if (operationState is OperationState.Loading) {
+                        Box(Modifier.fillMaxWidth().height(50.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                         }
                     } else {
                         PrimaryButton(
-                            text = "SUBMIT",
+                            text = "ADD ITEM",
                             onClick = {
                                 val image = photoFile ?: return@PrimaryButton
                                 viewModel.addInventory(
-                                    movementType = "inbound",
-                                    type = itemType.value,
-                                    description = description,
+                                    category = selectedCategory,
+                                    itemName = itemName,
+                                    itemDescription = itemDescription,
                                     pic = pic,
-                                    picture = image
+                                    picture = image,
+                                    notes = notes,
+                                    quantity = quantity.toIntOrNull() ?: 1
                                 )
                             },
-                            enabled = description.isNotBlank() && pic.isNotBlank() && photoFile != null
+                            enabled = itemName.isNotBlank() && pic.isNotBlank() && photoFile != null
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PhotoCaptureBox(
-    photoFile: File?,
-    onTakePhoto: () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            text = "Picture",
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        photoFile?.let { file ->
-            val bitmap = remember(file.absolutePath) {
-                BitmapFactory.decodeFile(file.absolutePath)
-            }
-            if (bitmap != null) {
-                Image(
-                    bitmap = bitmap.asImageBitmap(),
-                    contentDescription = "Captured inventory picture",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(220.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            }
-        }
-
-        OutlinedButton(
-            onClick = onTakePhoto,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(20.dp))
-                Text(if (photoFile == null) "Take Picture" else "Retake Picture")
             }
         }
     }

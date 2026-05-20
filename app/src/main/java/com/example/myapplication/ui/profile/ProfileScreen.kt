@@ -23,9 +23,11 @@ import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun ProfileScreen(
-    viewModel: ProfileViewModel = koinViewModel()
+    viewModel: ProfileViewModel = koinViewModel(),
+    onLogout: () -> Unit = {}
 ) {
     val state by viewModel.profileState.collectAsState()
+
 
     Box(
         modifier = Modifier
@@ -123,7 +125,7 @@ fun ProfileScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Button(onClick = { viewModel.logout() }) {
+                    Button(onClick = { viewModel.logout(); onLogout() }) {
                         Icon(Icons.Default.Logout, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
                         Text("Logout")

@@ -1,114 +1,214 @@
 package com.example.myapplication.data.repository
 
-import com.example.myapplication.data.model.AddInventoryResponse
-import com.example.myapplication.data.model.InventoryListResponse
-import com.example.myapplication.data.remote.InventoryApi
+import com.example.myapplication.data.local.SessionManager
+import com.example.myapplication.data.local.dao.InventoryDao
+import com.example.myapplication.data.local.dao.LogDao
+import com.example.myapplication.data.local.entity.InventoryEntity
+import com.example.myapplication.data.local.entity.LogEntity
+import com.example.myapplication.data.util.InventoryCodeGenerator
+import com.example.myapplication.domain.model.ItemCategory
+import com.example.myapplication.domain.model.ItemStatus
 import com.example.myapplication.domain.repository.InventoryRepository
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.asRequestBody
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
+import kotlinx.coroutines.flow.Flow
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.UUID
 
 class InventoryRepositoryImpl(
-    private val dao: com.example.myapplication.data.local.dao.InventoryDao,
-    private val logDao: com.example.myapplication.data.local.dao.LogDao
+    private val dao: InventoryDao,
+    private val logDao: LogDao,
+    private val sessionManager: SessionManager
 ) : InventoryRepository {
 
-    override suspend fun getInventory(): Result<InventoryListResponse> {
-        return try {
-            val entities = dao.getAllInventoryItems()
-            val items = entities.map { entity ->
-                com.example.myapplication.data.model.InventoryItem(
-                    id = entity.id,
-                    type = entity.type,
-                    description = entity.description,
-                    pic = entity.pic,
-                    picture = entity.picture,
-                    movement = entity.movement,
-                    createdAt = entity.createdAt,
-                    updatedAt = entity.updatedAt
-                )
-            }
-            Result.success(
-                InventoryListResponse(
-                    code = 200,
-                    message = "Success",
-                    data = items
-                )
-            )
-        } catch (e: Exception) {
-            Result.failure(Exception(e.message ?: "Local DB error occurred"))
-        }
-    }
+    private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+
+    // ── Queries ──────────────────────────────────────────────────────────────
+
+    override fun searchInventory(
+        query: String,
+        category: String,
+        status: String,
+        movement: String
+    ): Flow<List<InventoryEntity>> = dao.searchInventory(query, category, status, movement)
+
+    override fun getAllInventoryFlow(): Flow<List<InventoryEntity>> = dao.getAllInventoryFlow()
+
+    // ── Add inbound item ─────────────────────────────────────────────────────
 
     override suspend fun addInventory(
-        movementType: String,
-        type: String,
-        description: String,
+        category: ItemCategory,
+        itemName: String,
+        itemDescription: String,
         pic: String,
-        picture: File
-    ): Result<AddInventoryResponse> {
+        picture: File,
+        notes: String,
+        quantity: Int
+    ): Result<InventoryEntity> {
         return try {
-            val now = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
-            val entity = com.example.myapplication.data.local.entity.InventoryEntity(
-                id = System.currentTimeMillis().toString(),
-                type = type,
-                description = description,
-                pic = pic,
+            val now = dateFormat.format(Date())
+            val catDateSuffix = java.text.SimpleDateFormat("ddMMyy", Locale.getDefault()).format(Date())
+
+            // Generate unique 12-char inventory code
+            val existingCount = dao.countItemsForCodeGeneration(category.code, catDateSuffix)
+            val inventoryCode = InventoryCodeGenerator.generate(category, existingCount)
+
+            val entity = InventoryEntity(
+                id = UUID.randomUUID().toString(),
+                inventoryCode = inventoryCode,
+                itemName = itemName.trim(),
+                category = category.name,
+                itemDescription = itemDescription.trim().ifBlank { null },
+                quantity = quantity,
+                status = ItemStatus.AVAILABLE.name,
+                pic = pic.trim(),
                 picture = picture.absolutePath,
-                movement = movementType,
+                movement = "inbound",
+                notes = notes.trim().ifBlank { null },
                 createdAt = now,
                 updatedAt = now
             )
             dao.insertInventoryItem(entity)
-            Result.success(
-                AddInventoryResponse(
-                    status = true,
-                    message = "Item saved to database"
-                )
+
+            // Write audit log
+            insertLog(
+                itemId = entity.id,
+                inventoryCode = entity.inventoryCode,
+                itemName = entity.itemName,
+                action = "CHECK_IN",
+                notes = notes.ifBlank { null }
             )
+
+            Result.success(entity)
         } catch (e: Exception) {
-            Result.failure(Exception(e.message ?: "Local DB error occurred"))
+            Result.failure(Exception(e.message ?: "Failed to add item"))
         }
     }
 
-    override suspend fun checkoutInventory(id: String, picName: String): Result<Boolean> {
+    // ── Checkout (outbound) ──────────────────────────────────────────────────
+
+    override suspend fun checkoutInventory(
+        id: String,
+        picName: String,
+        notes: String,
+        photoFile: File?
+    ): Result<Boolean> {
+        return try {
+            val item = dao.getInventoryItemById(id)
+                ?: return Result.failure(Exception("Item not found"))
+
+            val now = dateFormat.format(Date())
+            dao.updateInventoryItem(
+                item.copy(
+                    movement = "outbound",
+                    status = ItemStatus.CHECKED_OUT.name,
+                    pic = picName,
+                    notes = notes.trim().ifBlank { item.notes },
+                    updatedAt = now
+                )
+            )
+
+            insertLog(
+                itemId = item.id,
+                inventoryCode = item.inventoryCode,
+                itemName = item.itemName,
+                action = "CHECK_OUT",
+                notes = "Released to $picName${if (notes.isNotBlank()) " — $notes" else ""}",
+                photoPath = photoFile?.absolutePath
+            )
+
+            Result.success(true)
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Checkout error"))
+        }
+    }
+
+    // ── Mark lost ────────────────────────────────────────────────────────────
+
+    override suspend fun markItemLost(id: String, notes: String): Result<Boolean> {
+        return try {
+            val item = dao.getInventoryItemById(id)
+                ?: return Result.failure(Exception("Item not found"))
+
+            val now = dateFormat.format(Date())
+            dao.updateInventoryItem(
+                item.copy(
+                    status = ItemStatus.LOST.name,
+                    notes = notes.trim().ifBlank { item.notes },
+                    updatedAt = now
+                )
+            )
+
+            insertLog(
+                itemId = item.id,
+                inventoryCode = item.inventoryCode,
+                itemName = item.itemName,
+                action = "MARK_LOST",
+                notes = notes.ifBlank { "Marked as lost" }
+            )
+
+            Result.success(true)
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Failed to mark item as lost"))
+        }
+    }
+
+    // ── Delete ───────────────────────────────────────────────────────────────
+
+    override suspend fun deleteInventory(id: String): Result<Boolean> {
         return try {
             val item = dao.getInventoryItemById(id)
             if (item != null) {
-                val now = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
-                // Construct updated item with outbound movement
-                val updatedItem = item.copy(
-                    movement = "outbound",
-                    pic = picName,
-                    updatedAt = now
+                insertLog(
+                    itemId = item.id,
+                    inventoryCode = item.inventoryCode,
+                    itemName = item.itemName,
+                    action = "DELETE",
+                    notes = "Item deleted"
                 )
-                // Insert/Replace back into DB
-                dao.insertInventoryItem(updatedItem)
-                
-                // Log the checkout
-                val log = com.example.myapplication.data.local.entity.LogEntity(
-                    message = "Item '${item.type}' (Description: ${item.description}) checked out by $picName",
-                    timestamp = now
-                )
-                logDao.insertLog(log)
-                Result.success(true)
-            } else {
-                Result.failure(Exception("Item not found"))
             }
+            dao.deleteInventoryItem(id)
+            Result.success(true)
         } catch (e: Exception) {
-            Result.failure(Exception(e.message ?: "Checkout error occurred"))
+            Result.failure(Exception(e.message ?: "Delete error"))
         }
     }
 
-    override suspend fun getLogs(): Result<List<com.example.myapplication.data.local.entity.LogEntity>> {
+    // ── Logs ─────────────────────────────────────────────────────────────────
+
+    override suspend fun getLogs(): Result<List<LogEntity>> {
         return try {
-            val logs = logDao.getAllLogs()
-            Result.success(logs)
+            // Kept for backward compat; prefer LogDao.getAllLogsFlow() directly
+            Result.success(emptyList())
         } catch (e: Exception) {
             Result.failure(Exception(e.message ?: "Failed to get logs"))
         }
+    }
+
+    // ── Private helper ───────────────────────────────────────────────────────
+
+    private suspend fun insertLog(
+        itemId: String,
+        inventoryCode: String,
+        itemName: String,
+        action: String,
+        notes: String? = null,
+        photoPath: String? = null
+    ) {
+        val user = sessionManager.getLoggedInUser()
+        logDao.insertLog(
+            LogEntity(
+                inventoryItemId = itemId,
+                inventoryCode = inventoryCode,
+                itemName = itemName,
+                action = action,
+                performedByUserId = user?.id ?: "system",
+                performedByUsername = user?.username ?: "system",
+                notes = notes,
+                photoPath = photoPath,
+                timestamp = dateFormat.format(Date())
+            )
+        )
     }
 }

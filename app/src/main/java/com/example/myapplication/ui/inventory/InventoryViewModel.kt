@@ -2,95 +2,154 @@ package com.example.myapplication.ui.inventory
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.myapplication.data.model.AddInventoryResponse
-import com.example.myapplication.data.model.InventoryListResponse
+import com.example.myapplication.data.local.entity.InventoryEntity
+import com.example.myapplication.domain.model.ItemCategory
+import com.example.myapplication.domain.model.ItemStatus
+import com.example.myapplication.domain.model.SearchFilterState
 import com.example.myapplication.domain.repository.InventoryRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 
-sealed class AddInventoryState {
-    object Idle : AddInventoryState()
-    object Loading : AddInventoryState()
-    data class Success(val response: AddInventoryResponse) : AddInventoryState()
-    data class Error(val message: String) : AddInventoryState()
+// ── UI State ──────────────────────────────────────────────────────────────────
+
+sealed class OperationState {
+    object Idle : OperationState()
+    object Loading : OperationState()
+    data class Success(val message: String) : OperationState()
+    data class Error(val message: String) : OperationState()
 }
 
-sealed class InventoryListState {
-    object Idle : InventoryListState()
-    object Loading : InventoryListState()
-    data class Success(val response: InventoryListResponse) : InventoryListState()
-    data class Error(val message: String) : InventoryListState()
-}
+// ── ViewModel ─────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class InventoryViewModel(
-    private val repository: InventoryRepository
+    private val repository: InventoryRepository,
+    private val sessionManager: com.example.myapplication.data.local.SessionManager
 ) : ViewModel() {
 
-    private val _addInventoryState = MutableStateFlow<AddInventoryState>(AddInventoryState.Idle)
-    val addInventoryState: StateFlow<AddInventoryState> = _addInventoryState.asStateFlow()
+    // ── Filter state ─────────────────────────────────────────────────────────
 
-    private val _inventoryListState = MutableStateFlow<InventoryListState>(InventoryListState.Idle)
-    val inventoryListState: StateFlow<InventoryListState> = _inventoryListState.asStateFlow()
+    private val _filter = MutableStateFlow(SearchFilterState())
+    val filter: StateFlow<SearchFilterState> = _filter.asStateFlow()
 
-    private val _checkoutState = MutableStateFlow<AddInventoryState>(AddInventoryState.Idle)
-    val checkoutState: StateFlow<AddInventoryState> = _checkoutState.asStateFlow()
+    // ── Reactive inventory list (updates on filter change OR DB change) ───────
 
-    private val _logsState = MutableStateFlow<List<com.example.myapplication.data.local.entity.LogEntity>>(emptyList())
-    val logsState: StateFlow<List<com.example.myapplication.data.local.entity.LogEntity>> = _logsState.asStateFlow()
-
-    init {
-        loadInventory()
-    }
-
-    fun loadInventory() {
-        viewModelScope.launch {
-            _inventoryListState.value = InventoryListState.Loading
-            repository.getInventory()
-                .onSuccess { _inventoryListState.value = InventoryListState.Success(it) }
-                .onFailure { _inventoryListState.value = InventoryListState.Error(it.message ?: "Unknown error") }
+    val inventoryList: StateFlow<List<InventoryEntity>> = _filter
+        .flatMapLatest { f ->
+            repository.searchInventory(
+                query    = f.query,
+                category = f.category?.name ?: "",
+                status   = f.status?.name ?: "",
+                movement = f.movement ?: ""
+            )
         }
+        .catch { emit(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // Convenience: inbound only
+    val inboundList: StateFlow<List<InventoryEntity>> = inventoryList
+        .map { it.filter { item -> item.movement == "inbound" && item.status == ItemStatus.AVAILABLE.name } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // Convenience: outbound only
+    val outboundList: StateFlow<List<InventoryEntity>> = inventoryList
+        .map { it.filter { item -> item.movement == "outbound" } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // ── Operation state ───────────────────────────────────────────────────────
+
+    private val _operationState = MutableStateFlow<OperationState>(OperationState.Idle)
+    val operationState: StateFlow<OperationState> = _operationState.asStateFlow()
+
+    // ── Filter actions ────────────────────────────────────────────────────────
+
+    fun updateSearchQuery(query: String) {
+        _filter.value = _filter.value.copy(query = query)
     }
 
-    fun addInventory(movementType: String, type: String, description: String, pic: String, picture: File) {
+    fun updateCategoryFilter(category: ItemCategory?) {
+        _filter.value = _filter.value.copy(category = category)
+    }
+
+    fun updateStatusFilter(status: ItemStatus?) {
+        _filter.value = _filter.value.copy(status = status)
+    }
+
+    fun updateMovementFilter(movement: String?) {
+        _filter.value = _filter.value.copy(movement = movement)
+    }
+
+    fun clearFilters() {
+        _filter.value = SearchFilterState()
+    }
+
+    // ── CRUD operations ───────────────────────────────────────────────────────
+
+    fun addInventory(
+        category: ItemCategory,
+        itemName: String,
+        itemDescription: String,
+        pic: String,
+        picture: File,
+        notes: String = "",
+        quantity: Int = 1
+    ) {
         viewModelScope.launch {
-            _addInventoryState.value = AddInventoryState.Loading
-            repository.addInventory(movementType, type, description, pic, picture)
-                .onSuccess { 
-                    _addInventoryState.value = AddInventoryState.Success(it)
-                    loadInventory()
+            _operationState.value = OperationState.Loading
+            repository.addInventory(category, itemName, itemDescription, pic, picture, notes, quantity)
+                .onSuccess { entity ->
+                    _operationState.value = OperationState.Success(
+                        "Item '${entity.itemName}' added with code ${entity.inventoryCode}"
+                    )
                 }
-                .onFailure { _addInventoryState.value = AddInventoryState.Error(it.message ?: "Unknown error") }
+                .onFailure { _operationState.value = OperationState.Error(it.message ?: "Error") }
         }
     }
 
-    fun checkoutItem(id: String, picName: String) {
+    fun checkoutItem(id: String, picName: String, notes: String = "", photoFile: File? = null) {
         viewModelScope.launch {
-            _checkoutState.value = AddInventoryState.Loading
-            repository.checkoutInventory(id, picName)
-                .onSuccess {
-                    _checkoutState.value = AddInventoryState.Success(AddInventoryResponse(true, "Checkout successful"))
-                    loadInventory()
-                    loadLogs()
-                }
-                .onFailure { _checkoutState.value = AddInventoryState.Error(it.message ?: "Unknown error") }
+            _operationState.value = OperationState.Loading
+            repository.checkoutInventory(id, picName, notes, photoFile)
+                .onSuccess { _operationState.value = OperationState.Success("Checkout successful") }
+                .onFailure { _operationState.value = OperationState.Error(it.message ?: "Error") }
         }
     }
 
-    fun loadLogs() {
+    fun markItemLost(id: String, notes: String = "") {
         viewModelScope.launch {
-            repository.getLogs()
-                .onSuccess { _logsState.value = it }
+            _operationState.value = OperationState.Loading
+            repository.markItemLost(id, notes)
+                .onSuccess { _operationState.value = OperationState.Success("Item marked as lost") }
+                .onFailure { _operationState.value = OperationState.Error(it.message ?: "Error") }
         }
     }
 
-    fun resetAddState() {
-        _addInventoryState.value = AddInventoryState.Idle
+    fun deleteItem(id: String) {
+        viewModelScope.launch {
+            _operationState.value = OperationState.Loading
+            repository.deleteInventory(id)
+                .onSuccess { _operationState.value = OperationState.Success("Item deleted") }
+                .onFailure { _operationState.value = OperationState.Error(it.message ?: "Error") }
+        }
     }
-    
-    fun resetCheckoutState() {
-        _checkoutState.value = AddInventoryState.Idle
+
+    fun resetOperationState() {
+        _operationState.value = OperationState.Idle
     }
+
+    // Kept for legacy callers
+    fun loadInventory() { /* No-op — list is now reactive via Flow */ }
+
+    // Legacy state getters for screens still using old pattern
+    val addInventoryState get() = operationState
+    val checkoutState get() = operationState
 }

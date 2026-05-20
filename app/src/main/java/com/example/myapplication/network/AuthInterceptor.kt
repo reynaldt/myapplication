@@ -12,11 +12,7 @@ class AuthInterceptor(
         val requestBuilder = chain.request().newBuilder()
             .header("X-API-KEY", "tBHAVS6pfrcHUStHflb40vWeQn61lLgN")
 
-        sessionManager.fetchAuthToken()
-            ?.takeIf { it.isNotBlank() }
-            ?.let { token ->
-                requestBuilder.header("Authorization", "Bearer $token")
-            }
+        // Auth token removed — app is now offline-first; bearer token no longer required
 
         val response = chain.proceed(requestBuilder.build())
 
