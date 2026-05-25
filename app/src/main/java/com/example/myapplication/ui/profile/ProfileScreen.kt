@@ -84,7 +84,7 @@ fun ProfileScreen(
                     }
 
                     Text(
-                        text = data?.mitraName ?: "-",
+                        text = data?.displayName ?: "-",
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
@@ -105,20 +105,26 @@ fun ProfileScreen(
                         ) {
                             ProfileInfoRow(
                                 icon = { Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                                label = "Mitra ID",
-                                value = data?.idMitra ?: "-"
+                                label = "User ID",
+                                value = data?.id ?: "-"
                             )
                             HorizontalDivider()
                             ProfileInfoRow(
                                 icon = { Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                                 label = "Name",
-                                value = data?.mitraName ?: "-"
+                                value = data?.displayName ?: "-"
                             )
                             HorizontalDivider()
                             ProfileInfoRow(
                                 icon = { Icon(Icons.Default.Email, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                                label = "Email",
-                                value = data?.email ?: "-"
+                                label = "Username",
+                                value = data?.username ?: "-"
+                            )
+                            HorizontalDivider()
+                            ProfileInfoRow(
+                                icon = { Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                                label = "Role",
+                                value = data?.role ?: "-"
                             )
                         }
                     }

@@ -1,7 +1,6 @@
 package com.example.myapplication
 
 import android.app.Application
-import com.example.myapplication.di.networkModule
 import com.example.myapplication.di.repositoryModule
 import com.example.myapplication.di.localModule
 import com.example.myapplication.di.viewModelModule
@@ -25,7 +24,6 @@ class MyApplicationApp : Application() {
             androidLogger(if (AppConfig.IS_DEBUG) Level.DEBUG else Level.NONE)
             androidContext(this@MyApplicationApp)
             modules(
-                networkModule,
                 repositoryModule,
                 localModule,
                 viewModelModule
