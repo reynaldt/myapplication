@@ -18,7 +18,7 @@ import java.util.UUID
 
 @Database(
     entities = [InventoryEntity::class, LogEntity::class, UserEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -102,6 +102,17 @@ abstract class AppDatabase : RoomDatabase() {
                     INSERT OR IGNORE INTO `users` (id, username, passwordHash, role, displayName, createdAt)
                     VALUES ('${UUID.randomUUID()}', 'user', '$userHash', 'STAFF', 'Staff User', '$now')
                 """.trimIndent())
+            }
+        }
+
+        /**
+         * Migration from v3 -> v4:
+         * Adds stable identity tracking for the person-in-charge while preserving
+         * the existing free-text PIC display value for old rows.
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `inventory_items` ADD COLUMN `picUserId` TEXT")
             }
         }
 

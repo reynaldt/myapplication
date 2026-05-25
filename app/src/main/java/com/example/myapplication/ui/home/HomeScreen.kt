@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -23,6 +24,7 @@ import coil.compose.AsyncImage
 import com.example.myapplication.data.local.entity.InventoryEntity
 import com.example.myapplication.domain.model.ItemCategory
 import com.example.myapplication.domain.model.ItemStatus
+import com.example.myapplication.ui.components.EmptyState
 import com.example.myapplication.ui.components.InventoryItemDetailDialog
 import com.example.myapplication.ui.inventory.InventoryViewModel
 import org.koin.androidx.compose.koinViewModel
@@ -61,7 +63,8 @@ fun HomeScreen(
                 onValueChange = { viewModel.updateSearchQuery(it) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .testTag("InventorySearchField"),
                 placeholder = { Text("Search by name or code…") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
@@ -121,29 +124,15 @@ fun HomeScreen(
 
             // ── Inventory list ────────────────────────────────────────────────
             if (inventoryList.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Inventory,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f)
-                        )
-                        Text(
-                            text = if (filter.query.isNotEmpty() || filter.category != null || filter.status != null)
-                                "No items match your filter"
-                            else "No inventory items yet",
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                            fontSize = 16.sp
-                        )
-                    }
-                }
+                EmptyState(
+                    title = if (filter.query.isNotEmpty() || filter.category != null || filter.status != null)
+                        "No items match your filter"
+                    else "No inventory items yet",
+                    subtitle = "Use search and filters to narrow your results or add a new inventory item.",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag("HomeEmptyState")
+                )
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -170,7 +159,10 @@ private fun InventoryItemCard(item: InventoryEntity, onClick: () -> Unit) {
     val statusLabel = ItemStatus.fromString(item.status).label
 
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("InventoryItemCard_${item.inventoryCode}")
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)

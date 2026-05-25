@@ -21,12 +21,15 @@ import org.koin.compose.koinInject
 @Composable
 fun RequireRole(
     permission: (UserRole) -> Boolean,
+    role: UserRole? = null,
     fallback: @Composable () -> Unit = {},
     content: @Composable () -> Unit
 ) {
-    val sessionManager: SessionManager = koinInject()
-    val user by sessionManager.currentUser.collectAsState()
-    val role = user?.role ?: UserRole.VIEWER
+    val actualRole = role ?: run {
+        val sessionManager: SessionManager = koinInject()
+        val user by sessionManager.currentUser.collectAsState()
+        user?.role ?: UserRole.VIEWER
+    }
 
-    if (permission(role)) content() else fallback()
+    if (permission(actualRole)) content() else fallback()
 }

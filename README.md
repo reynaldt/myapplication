@@ -1,274 +1,209 @@
-<div align="center">
+# InventoryApp
 
-# 📦 InventoryApp
+A fully offline Android inventory management app built with Kotlin, Jetpack Compose, Room, Koin, and Clean Architecture.
 
-### A production-ready, offline-first Android inventory management system
+InventoryApp helps a small team manage physical inventory from item check-in to checkout. It supports local authentication, role-based access, real-time inventory search, photo evidence with PIC and timestamp overlays, audit logs, CSV export, and accountable PIC tracking tied to the logged-in user profile.
 
-![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?style=flat-square&logo=kotlin)
-![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-2024.09-4285F4?style=flat-square&logo=jetpackcompose)
-![Room](https://img.shields.io/badge/Room-2.6.1-00796B?style=flat-square&logo=android)
-![Min SDK](https://img.shields.io/badge/Min%20SDK-26-brightgreen?style=flat-square)
-![Build](https://img.shields.io/badge/Build-Passing-success?style=flat-square)
-![Architecture](https://img.shields.io/badge/Architecture-MVVM%20%2B%20Clean-blue?style=flat-square)
+The project focuses on production-minded Android engineering, including offline-first data handling, reactive UI state, permission-aware screens, database migrations, and testable business logic.
 
-</div>
+## What The App Does
 
----
+- Lets users log in as Admin or Staff using locally seeded accounts.
+- Stores all inventory data on-device with Room.
+- Adds inbound inventory with category, quantity, description, notes, PIC, and photo evidence.
+- Keeps the add-item form stable when returning from the Android camera flow.
+- Automatically generates readable inventory codes such as `GD000120052026`.
+- Checks out available items and records who handled the movement.
+- Matches PIC ownership to the logged-in user profile using both display name and stable user id.
+- Tracks every important action in an audit log.
+- Provides real-time search and filtering by item name, code, category, status, and movement.
+- Shows a dashboard with live inventory metrics.
+- Exports inventory and audit logs to CSV through Android's share sheet.
 
-## 📱 Overview
+## Why This Project Matters
 
-InventoryApp is a fully offline Android application for managing physical inventory — from check-in to checkout — with role-based access control, real-time reactive search, a metrics dashboard, and a complete audit trail. Built to showcase production-level mobile engineering: clean architecture, reactive data flows, local auth with encryption, and zero external network dependencies.
+This is not only a CRUD app. The app models real inventory workflows where accountability matters.
 
-> **All data lives on-device.** No server. No cloud. No API keys at runtime.
+For example, when a staff user checks in or checks out an item, the app does not rely only on manually typed PIC text. It links the movement to the authenticated user profile by saving:
 
----
+- `pic`: the display name shown in the UI
+- `picUserId`: the stable user id used for reliable tracking
 
-## ✨ Features At a Glance
+That makes the audit trail more trustworthy and easier to explain in a workplace system.
 
-| Feature | Details |
+## Main Features
+
+| Feature | Description |
 |---|---|
-| 🔐 **Auth + RBAC** | 3 roles (Admin / Staff / Viewer) with SHA-256 hashed credentials in EncryptedSharedPreferences |
-| 🔍 **Reactive Search** | Live search by name, inventory code, or description — zero polling via `flatMapLatest` |
-| 🏷️ **Auto Inventory Codes** | 12-char format `[catcode][seq4][ddmmyy]` e.g. `GD000120052026` |
-| 📊 **Dashboard** | Real-time stats (total, available, checked-out, lost) with animated category breakdown |
-| 📋 **Audit Log** | Every action stamped with user identity, timestamp, item code, and notes |
-| 📁 **CSV Export** | One-tap export of inventory or logs to CSV, shared via Android share sheet |
-| 📷 **Photo Evidence** | Camera capture required on check-in; images stored locally and shown in cards |
-| 🔄 **DB Migration** | Written Room `Migration(2→3)` — no destructive reset on existing installs |
+| Offline-first inventory | All data is stored locally using Room. No server or runtime API key is required. |
+| Authentication | Local login with seeded users and encrypted session storage. |
+| Role-based access control | Admin and Staff can manage inventory. Viewer-style permissions are supported in the role model. |
+| User-aware PIC tracking | Inventory movements are tied to the logged-in profile to reduce manual input errors. |
+| Auto inventory code generation | Codes are generated from category, sequence number, and creation date. |
+| Reactive search and filters | `StateFlow` and `flatMapLatest` keep the UI synced with filter changes and database updates. |
+| Dashboard | Live counts for total, available, checked-out, lost, inbound, outbound, and category breakdowns. |
+| Audit log | Important actions are stamped with item data, user identity, timestamp, notes, and optional photo path. |
+| Photo evidence | Camera capture is used when adding inbound items. Previews preserve the original ratio, respect EXIF orientation, show PIC and timestamp overlays, and compress images for local storage. |
+| CSV export | Inventory and logs can be exported and shared from the device. |
+| Room migrations | Schema changes are handled with explicit migrations instead of destructive resets. |
+| Tests | Repository and utility logic are covered with unit tests. Compose screens have instrumented test coverage. |
 
----
+## Architecture
 
-## 🏗️ Architecture
+The app follows an MVVM + Repository structure with clear separation between UI, domain, data, and dependency injection layers.
 
-```
+```text
 app/
-├── data/
-│   ├── local/
-│   │   ├── dao/          # InventoryDao, LogDao, UserDao (Flow-based)
-│   │   ├── entity/       # InventoryEntity, LogEntity, UserEntity
-│   │   └── AppDatabase   # Room v3 + migration + seed callback
-│   ├── repository/       # AuthRepositoryImpl, InventoryRepositoryImpl, ExportRepository
-│   └── util/             # InventoryCodeGenerator
-├── domain/
-│   ├── model/            # UserRole, ItemCategory, ItemStatus, LoggedInUser, SearchFilterState
-│   └── repository/       # Interfaces: AuthRepository, InventoryRepository
-├── ui/
-│   ├── auth/             # AuthViewModel
-│   ├── dashboard/        # DashboardViewModel, DashboardScreen
-│   ├── inventory/        # InventoryViewModel, AddInboundScreen, CheckoutScreen, LogsScreen
-│   ├── home/             # HomeScreen (search + filter)
-│   ├── login/            # LoginViewModel, LoginScreen
-│   └── components/       # RequireRole, InventoryItemDetailDialog, RoleGuard
-└── di/                   # Koin modules: local, repository, viewModel
+|-- data/
+|   |-- local/
+|   |   |-- dao/          InventoryDao, LogDao, UserDao
+|   |   |-- entity/       InventoryEntity, LogEntity, UserEntity
+|   |   `-- AppDatabase   Room database, migrations, seed callback
+|   |-- repository/       Auth, inventory, profile, export implementations
+|   `-- util/             InventoryCodeGenerator
+|-- domain/
+|   |-- model/            UserRole, ItemCategory, ItemStatus, LoggedInUser
+|   `-- repository/       Repository contracts
+|-- ui/
+|   |-- dashboard/        Dashboard screen and view model
+|   |-- inventory/        Add, checkout, list, logs, and inventory view model
+|   |-- login/            Login screen and view model
+|   |-- components/       Shared Compose components and role guards
+|   `-- navigation/       App navigation
+`-- di/                   Koin modules
 ```
 
-**Pattern:** MVVM + Repository + Clean Architecture layers  
-**State:** `StateFlow` + `flatMapLatest` for reactive, lifecycle-aware UI  
-**DI:** Koin — no code generation overhead  
+## Technical Highlights
 
----
+- Kotlin + Jetpack Compose UI
+- Material 3 design components
+- Room database with Flow-based DAO queries
+- Koin dependency injection
+- `StateFlow` for lifecycle-aware UI state
+- `flatMapLatest` for reactive search/filter behavior
+- EncryptedSharedPreferences for local session data
+- FileProvider for safe local photo sharing
+- Saveable Compose state for camera round-trips, so users return to the same form after taking a photo
+- EXIF-aware photo preview and JPEG compression for clear local evidence images
+- Explicit Room migrations from v2 to v3 and v3 to v4
+- Unit tests with JUnit, coroutines test, and Mockito Kotlin
 
-## 🔐 Role-Based Access Control
+## Role Permissions
 
 | Permission | Admin | Staff | Viewer |
 |---|:---:|:---:|:---:|
-| Check-In Item | ✅ | ✅ | ❌ |
-| Checkout Item | ✅ | ✅ | ❌ |
-| View Inventory | ✅ | ✅ | ✅ |
-| View Audit Logs | ✅ | ✅ | ✅ |
-| Export CSV | ✅ | ✅ | ❌ |
-| Delete Item | ✅ | ❌ | ❌ |
+| Check in item | Yes | Yes | No |
+| Checkout item | Yes | Yes | No |
+| View inventory | Yes | Yes | Yes |
+| View audit logs | Yes | Yes | Yes |
+| Export CSV | Yes | Yes | No |
+| Delete item | Yes | No | No |
 
-Permissions are enforced via a `RequireRole {}` composable wrapper — UI elements are hidden, not just disabled:
+Permissions are enforced in the UI with reusable role guard components, so restricted actions are hidden from users who should not access them.
 
-```kotlin
-RequireRole({ it.canCheckOut() }) {
-    Button(onClick = onCheckoutClick) { Text("Checkout") }
-}
+## Inventory Code Format
+
+Inventory codes are generated automatically when an item is created.
+
+```text
+GD000120052026
+| |   |
+| |   `-- date: 20 May 2026
+| `------ sequence number: 0001
+`-------- category code: GD
 ```
 
-**Default credentials** (seeded on first install):
-- `admin` / `admin` → ADMIN role
-- `user` / `user` → STAFF role
+Example category prefixes:
 
----
+| Category | Code |
+|---|---|
+| Goods | `GD` |
+| Letter / Document | `LT` |
+| Consumable | `CS` |
+| Asset | `AS` |
+| Other | `OT` |
 
-## 🏷️ Inventory Code Format
-
-Auto-generated on item creation — **12 characters, no user input needed:**
-
-```
-GD  0001  200526
-│   │     └── ddmmyy (date of creation)
-│   └──────── 4-digit sequential number
-└──────────── 2-char category prefix
-```
-
-| Category | Code | Example |
-|---|---|---|
-| Goods | `GD` | `GD000120052026` |
-| Letter / Document | `LT` | `LT000220052026` |
-| Consumable | `CS` | `CS000120052026` |
-| Asset | `AS` | `AS000320052026` |
-| Other | `OT` | `OT000120052026` |
-
----
-
-## ⚡ Reactive Data Layer
-
-Search and filter state is managed as a `StateFlow<SearchFilterState>`. Every time the filter changes, `flatMapLatest` cancels the previous query and fires a new one — the UI always reflects the exact current database state:
-
-```kotlin
-val inventoryList: StateFlow<List<InventoryEntity>> = _filter
-    .flatMapLatest { f ->
-        repository.searchInventory(
-            query    = f.query,
-            category = f.category?.name ?: "",
-            status   = f.status?.name ?: "",
-            movement = f.movement ?: ""
-        )
-    }
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-```
-
-The SQL query uses SQLite's `LIKE` wildcard syntax and empty-string-as-wildcard convention, avoiding Kotlin-side filtering entirely.
-
----
-
-## 📊 Dashboard — Live Stats
-
-The dashboard `combine`s **11 separate `Flow<Int>` DAO queries** into a single `DashboardStats` object:
-
-```kotlin
-val stats = combine(
-    dao.countAll(),
-    dao.countByStatus("AVAILABLE"),
-    dao.countByStatus("CHECKED_OUT"),
-    dao.countByStatus("LOST"),
-    dao.countInbound(),
-    dao.countOutbound(),
-    // ...per-category counts
-) { values -> DashboardStats(...) }
-```
-
-Any insert, update, or delete in Room triggers all relevant flows automatically — no manual refresh needed.
-
----
-
-## 🔒 Security
-
-- **Password hashing:** SHA-256 via `java.security.MessageDigest` (no plain-text storage ever)
-- **Session storage:** `EncryptedSharedPreferences` with `MasterKey.KeyScheme.AES256_GCM`
-- **Audit log integrity:** User identity is **denormalized at write time** — logs remain accurate even if a user account is later renamed or deleted
-- **FileProvider:** All photo URIs shared through `FileProvider` — no `file://` exposure
-
----
-
-## 🗃️ Database Schema
+## Database Overview
 
 ### `inventory_items`
-| Column | Type | Notes |
-|---|---|---|
-| id | TEXT PK | UUID |
-| inventoryCode | TEXT | Auto-generated 12-char code |
-| itemName | TEXT | Human-readable name |
-| category | TEXT | GOODS / LETTER / CONSUMABLE / ASSET / OTHER |
-| itemDescription | TEXT? | Optional |
-| quantity | INT | Default 1 |
-| status | TEXT | AVAILABLE / CHECKED_OUT / LOST |
-| pic | TEXT? | Person-in-charge |
-| picture | TEXT? | Absolute path to local photo |
-| movement | TEXT? | inbound / outbound |
-| notes | TEXT? | Optional |
-| createdAt / updatedAt | TEXT? | ISO timestamp |
+
+| Column | Purpose |
+|---|---|
+| `id` | UUID primary key |
+| `inventoryCode` | Auto-generated inventory code |
+| `itemName` | Item name |
+| `category` | Item category |
+| `quantity` | Item quantity |
+| `status` | `AVAILABLE`, `CHECKED_OUT`, or `LOST` |
+| `pic` | Display name of the current person-in-charge |
+| `picUserId` | Stable user id for accountable PIC tracking |
+| `picture` | Local photo path |
+| `movement` | `inbound` or `outbound` |
+| `notes` | Optional movement notes |
+| `createdAt`, `updatedAt` | Timestamps |
 
 ### `audit_logs`
-| Column | Type | Notes |
-|---|---|---|
-| id | INT PK (autoincrement) | |
-| inventoryItemId | TEXT | FK reference |
-| inventoryCode | TEXT | Denormalized for display |
-| itemName | TEXT | Denormalized for display |
-| action | TEXT | CHECK_IN / CHECK_OUT / MARK_LOST / DELETE |
-| performedByUserId | TEXT | Stamped at write time |
-| performedByUsername | TEXT | Stamped at write time |
-| notes / photoPath | TEXT? | Optional |
-| timestamp | TEXT | ISO timestamp |
 
-### `users`
-| Column | Type | Notes |
-|---|---|---|
-| id | TEXT PK | UUID |
-| username | TEXT | Unique login name |
-| passwordHash | TEXT | SHA-256 hex |
-| role | TEXT | ADMIN / STAFF / VIEWER |
-| displayName | TEXT | Shown in UI |
-| createdAt | TEXT | ISO timestamp |
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Library |
+| Column | Purpose |
 |---|---|
-| UI | Jetpack Compose, Material3 |
-| Architecture | ViewModel, StateFlow, Flow |
-| Database | Room 2.6.1 + KSP |
-| DI | Koin 3.5.6 |
-| Image Loading | Coil 2.6.0 |
-| Security | EncryptedSharedPreferences, SecurityCrypto |
-| Navigation | Compose Navigation 2.7.7 |
-| Async | Kotlin Coroutines, flatMapLatest |
+| `inventoryItemId` | Related inventory item |
+| `inventoryCode` | Copied item code for historical display |
+| `itemName` | Copied item name for historical display |
+| `action` | `CHECK_IN`, `CHECK_OUT`, `MARK_LOST`, or `DELETE` |
+| `performedByUserId` | User id that performed the action |
+| `performedByUsername` | Username at the time of action |
+| `notes` | Optional details |
+| `photoPath` | Optional photo evidence |
+| `timestamp` | Action time |
 
----
+## Default Accounts
 
-## 🚀 Getting Started
+The app seeds local users on first install:
 
-### Prerequisites
+```text
+Username: admin
+Password: admin
+Role: ADMIN
+
+Username: user
+Password: user
+Role: STAFF
+```
+
+## Run The Project
+
+Requirements:
+
 - Android Studio Hedgehog or newer
-- Android SDK 26+
 - JDK 17
+- Android SDK 28+
 
-### Run
+Build:
+
 ```bash
-git clone https://github.com/reynaldt/inventoryapp.git
-cd inventoryapp
 ./gradlew assembleDebug
 ```
 
-Install the APK or run directly from Android Studio. The database is seeded with default users automatically on first launch.
+Run unit tests:
 
-### Default Logins
-```
-Username: admin    Password: admin    Role: ADMIN
-Username: user     Password: user     Role: STAFF
+```bash
+./gradlew testDebugUnitTest
 ```
 
----
-
-## 📂 Key Files Reference
+## Key Files
 
 | File | Purpose |
 |---|---|
-| [`AppDatabase.kt`](app/src/main/java/com/example/myapplication/data/local/AppDatabase.kt) | Room v3, Migration 2→3, seed callback |
-| [`InventoryRepositoryImpl.kt`](app/src/main/java/com/example/myapplication/data/repository/InventoryRepositoryImpl.kt) | Business logic: code gen, auto-logging, status transitions |
-| [`InventoryViewModel.kt`](app/src/main/java/com/example/myapplication/ui/inventory/InventoryViewModel.kt) | Reactive search/filter via flatMapLatest |
-| [`DashboardViewModel.kt`](app/src/main/java/com/example/myapplication/ui/dashboard/DashboardViewModel.kt) | 11-Flow combine → DashboardStats |
-| [`AuthRepositoryImpl.kt`](app/src/main/java/com/example/myapplication/data/repository/AuthRepositoryImpl.kt) | SHA-256 credential check against Room |
-| [`RoleGuard.kt`](app/src/main/java/com/example/myapplication/ui/components/RoleGuard.kt) | `RequireRole {}` permission composable |
-| [`ExportRepository.kt`](app/src/main/java/com/example/myapplication/data/repository/ExportRepository.kt) | CSV export via FileProvider |
+| `app/src/main/java/com/example/myapplication/data/local/AppDatabase.kt` | Room database, migrations, and user seed callback |
+| `app/src/main/java/com/example/myapplication/data/local/entity/InventoryEntity.kt` | Inventory schema, including PIC identity tracking |
+| `app/src/main/java/com/example/myapplication/data/repository/InventoryRepositoryImpl.kt` | Inventory business logic, code generation, status transitions, and audit logging |
+| `app/src/main/java/com/example/myapplication/ui/inventory/InventoryViewModel.kt` | Reactive inventory state and mutation actions |
+| `app/src/main/java/com/example/myapplication/ui/inventory/AddInboundScreen.kt` | Add-item form, camera capture flow, saveable form state, and photo compression |
+| `app/src/main/java/com/example/myapplication/ui/components/EvidencePhoto.kt` | EXIF-aware photo preview with PIC and timestamp overlays |
+| `app/src/main/java/com/example/myapplication/ui/dashboard/DashboardViewModel.kt` | Live dashboard metrics from Room flows |
+| `app/src/main/java/com/example/myapplication/ui/components/RoleGuard.kt` | Reusable role-based UI guard |
+| `app/src/test/java/com/example/myapplication/data/repository/InventoryRepositoryImplTest.kt` | Repository behavior tests |
 
----
+## Project Summary
 
-## 📸 Screenshots
-
-> *(Add screenshots here — Login, Dashboard, Home with filters, Add Item, Audit Log, Checkout)*
-
----
-
-<div align="center">
-
-Built with ❤️ by **reynaldt**  
-*Demonstrating offline-first architecture, reactive state management, and production-grade Android patterns.*
-
-</div>
+InventoryApp is built to show more than screen-level implementation. It includes local authentication, permission-aware UI, offline persistence, reactive data flows, explicit database migrations, audit logging, camera/photo handling, CSV export, and tests around business rules. The PIC/profile matching and photo evidence flow emphasize accountability, data integrity, and practical mobile UX in real workplace workflows.

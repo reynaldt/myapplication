@@ -80,4 +80,9 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
+
+    // Unit test support
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.3")
+    testImplementation("org.mockito:mockito-inline:5.2.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
 }

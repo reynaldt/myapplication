@@ -5,12 +5,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.myapplication.domain.model.UserRole
 import com.example.myapplication.ui.components.PrimaryTextLabel
 import com.example.myapplication.ui.components.RequireRole
 import com.example.myapplication.ui.logs.LogViewModel
@@ -23,34 +26,36 @@ fun InventoryScreen(
     viewModel: InventoryViewModel = koinViewModel(),
     onLogout: () -> Unit = {}
 ) {
-    var currentTab by remember { mutableStateOf(InventoryTab.MAIN) }
+    var currentTabName by rememberSaveable { mutableStateOf(InventoryTab.MAIN.name) }
+    val currentTab = InventoryTab.valueOf(currentTabName)
 
     if (currentTab != InventoryTab.MAIN) {
-        BackHandler { currentTab = InventoryTab.MAIN }
+        BackHandler { currentTabName = InventoryTab.MAIN.name }
     }
 
     when (currentTab) {
         InventoryTab.MAIN -> InventoryMainScreen(
-            onAddInboundClick = { currentTab = InventoryTab.INBOUND },
-            onCheckoutClick = { currentTab = InventoryTab.CHECKOUT },
-            onViewLogsClick = { currentTab = InventoryTab.LOGS },
-            onOutboundClick = { currentTab = InventoryTab.OUTBOUND },
+            onAddInboundClick = { currentTabName = InventoryTab.INBOUND.name },
+            onCheckoutClick = { currentTabName = InventoryTab.CHECKOUT.name },
+            onViewLogsClick = { currentTabName = InventoryTab.LOGS.name },
+            onOutboundClick = { currentTabName = InventoryTab.OUTBOUND.name },
             onLogout = onLogout
         )
-        InventoryTab.INBOUND -> AddInboundScreen(viewModel = viewModel, onBack = { currentTab = InventoryTab.MAIN })
-        InventoryTab.CHECKOUT -> CheckoutScreen(viewModel = viewModel, onBack = { currentTab = InventoryTab.MAIN })
-        InventoryTab.LOGS -> LogsScreen(onBack = { currentTab = InventoryTab.MAIN })
-        InventoryTab.OUTBOUND -> OutboundListScreen(viewModel = viewModel, onBack = { currentTab = InventoryTab.MAIN })
+        InventoryTab.INBOUND -> AddInboundScreen(viewModel = viewModel, onBack = { currentTabName = InventoryTab.MAIN.name })
+        InventoryTab.CHECKOUT -> CheckoutScreen(viewModel = viewModel, onBack = { currentTabName = InventoryTab.MAIN.name })
+        InventoryTab.LOGS -> LogsScreen(onBack = { currentTabName = InventoryTab.MAIN.name })
+        InventoryTab.OUTBOUND -> OutboundListScreen(viewModel = viewModel, onBack = { currentTabName = InventoryTab.MAIN.name })
     }
 }
 
 @Composable
-private fun InventoryMainScreen(
+internal fun InventoryMainScreen(
     onAddInboundClick: () -> Unit,
     onCheckoutClick: () -> Unit,
     onViewLogsClick: () -> Unit,
     onOutboundClick: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    role: UserRole? = null
 ) {
     Column(
         modifier = Modifier
@@ -69,36 +74,38 @@ private fun InventoryMainScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Check-in: Admin + Staff only
-            RequireRole({ it.canCheckIn() }) {
+            RequireRole({ it.canCheckIn() }, role = role) {
                 ActionButton(
                     onClick = onAddInboundClick,
                     icon = Icons.Default.Add,
-                    text = "Add Inbound Item"
+                    text = "Add Inbound Item",
+                    modifier = Modifier.testTag("InventoryActionAddInbound")
                 )
             }
 
             // Checkout: Admin + Staff only
-            RequireRole({ it.canCheckOut() }) {
+            RequireRole({ it.canCheckOut() }, role = role) {
                 ActionButton(
                     onClick = onCheckoutClick,
                     icon = Icons.Default.Output,
-                    text = "Checkout Item"
+                    text = "Checkout Item",
+                    modifier = Modifier.testTag("InventoryActionCheckout")
                 )
             }
 
             ActionButton(
                 onClick = onOutboundClick,
                 icon = Icons.Default.Inventory,
-                text = "Outbound Records"
+                text = "Outbound Records",
+                modifier = Modifier.testTag("InventoryActionOutbound")
             )
 
             ActionButton(
                 onClick = onViewLogsClick,
                 icon = Icons.Default.History,
-                text = "Audit Log"
+                text = "Audit Log",
+                modifier = Modifier.testTag("InventoryActionLogs")
             )
-
-            Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedButton(
                 onClick = onLogout,
@@ -116,10 +123,15 @@ private fun InventoryMainScreen(
 }
 
 @Composable
-private fun ActionButton(onClick: () -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+private fun ActionButton(
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+    modifier: Modifier = Modifier
+) {
     Button(
         onClick = onClick,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 32.dp),
         shape = RoundedCornerShape(12.dp)

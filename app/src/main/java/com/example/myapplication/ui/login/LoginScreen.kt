@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -65,7 +66,8 @@ fun LoginScreen(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(32.dp),
+                .padding(24.dp)
+                .testTag("LoginCard"),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface
@@ -92,6 +94,7 @@ fun LoginScreen(
                     onValueChange = { username = it },
                     label = "Username",
                     leadingIcon = Icons.Default.Person,
+                    modifier = Modifier.testTag("LoginUsername"),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                 )
 
@@ -102,6 +105,7 @@ fun LoginScreen(
                     onValueChange = { password = it },
                     label = "Password",
                     leadingIcon = Icons.Default.Lock,
+                    modifier = Modifier.testTag("LoginPassword"),
                     trailingIcon = {
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
                             Icon(
@@ -126,7 +130,8 @@ fun LoginScreen(
                     PrimaryButton(
                         text = "LOGIN",
                         onClick = { viewModel.login(username, password) },
-                        enabled = username.isNotBlank() && password.isNotBlank()
+                        enabled = username.isNotBlank() && password.isNotBlank(),
+                        modifier = Modifier.testTag("LoginButton")
                     )
                 }
             }

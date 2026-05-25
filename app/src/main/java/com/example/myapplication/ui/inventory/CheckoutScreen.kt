@@ -34,6 +34,7 @@ fun CheckoutScreen(
 ) {
     val inventoryList by viewModel.inventoryList.collectAsState()
     val operationState by viewModel.operationState.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
 
     // Only show items that are inbound + available
     val checkoutCandidates = inventoryList.filter {
@@ -45,6 +46,12 @@ fun CheckoutScreen(
     var picName by remember { mutableStateOf("") }
     var checkoutNotes by remember { mutableStateOf("") }
     var showCheckoutDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showCheckoutDialog, currentUser?.id) {
+        if (showCheckoutDialog) {
+            picName = currentUser?.displayName.orEmpty()
+        }
+    }
 
     if (selectedItemForDetails != null) {
         InventoryItemDetailDialog(
@@ -67,8 +74,9 @@ fun CheckoutScreen(
                     )
                     OutlinedTextField(
                         value = picName,
-                        onValueChange = { picName = it },
-                        label = { Text("Released to (PIC Name)") },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Released to (Logged-in Profile)") },
                         modifier = Modifier.fillMaxWidth(),
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) }
                     )
@@ -89,7 +97,7 @@ fun CheckoutScreen(
                         }
                         showCheckoutDialog = false; picName = ""; checkoutNotes = ""
                     },
-                    enabled = picName.isNotBlank()
+                    enabled = currentUser != null
                 ) { Text("Confirm Checkout") }
             },
             dismissButton = {

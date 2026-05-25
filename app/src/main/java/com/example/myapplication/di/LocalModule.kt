@@ -14,7 +14,7 @@ val localModule = module {
             AppDatabase::class.java,
             "my_app_database"
         )
-        .addMigrations(AppDatabase.MIGRATION_2_3)
+        .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4)
         .addCallback(AppDatabase.SEED_CALLBACK)
         .build()
     }

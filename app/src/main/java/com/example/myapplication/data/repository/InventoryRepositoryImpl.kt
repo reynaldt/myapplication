@@ -47,6 +47,8 @@ class InventoryRepositoryImpl(
         quantity: Int
     ): Result<InventoryEntity> {
         return try {
+            val picUser = sessionManager.getLoggedInUser()
+                ?: return Result.failure(Exception("Login session required to assign PIC"))
             val now = dateFormat.format(Date())
             val catDateSuffix = java.text.SimpleDateFormat("ddMMyy", Locale.getDefault()).format(Date())
 
@@ -62,7 +64,8 @@ class InventoryRepositoryImpl(
                 itemDescription = itemDescription.trim().ifBlank { null },
                 quantity = quantity,
                 status = ItemStatus.AVAILABLE.name,
-                pic = pic.trim(),
+                pic = picUser.displayName,
+                picUserId = picUser.id,
                 picture = picture.absolutePath,
                 movement = "inbound",
                 notes = notes.trim().ifBlank { null },
@@ -95,6 +98,8 @@ class InventoryRepositoryImpl(
         photoFile: File?
     ): Result<Boolean> {
         return try {
+            val picUser = sessionManager.getLoggedInUser()
+                ?: return Result.failure(Exception("Login session required to assign PIC"))
             val item = dao.getInventoryItemById(id)
                 ?: return Result.failure(Exception("Item not found"))
 
@@ -103,7 +108,8 @@ class InventoryRepositoryImpl(
                 item.copy(
                     movement = "outbound",
                     status = ItemStatus.CHECKED_OUT.name,
-                    pic = picName,
+                    pic = picUser.displayName,
+                    picUserId = picUser.id,
                     notes = notes.trim().ifBlank { item.notes },
                     updatedAt = now
                 )
@@ -114,7 +120,7 @@ class InventoryRepositoryImpl(
                 inventoryCode = item.inventoryCode,
                 itemName = item.itemName,
                 action = "CHECK_OUT",
-                notes = "Released to $picName${if (notes.isNotBlank()) " — $notes" else ""}",
+                notes = "Released to ${picUser.displayName}${if (notes.isNotBlank()) " - $notes" else ""}",
                 photoPath = photoFile?.absolutePath
             )
 

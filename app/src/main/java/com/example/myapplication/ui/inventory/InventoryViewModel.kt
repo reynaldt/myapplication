@@ -40,6 +40,7 @@ class InventoryViewModel(
 
     private val _filter = MutableStateFlow(SearchFilterState())
     val filter: StateFlow<SearchFilterState> = _filter.asStateFlow()
+    val currentUser = sessionManager.currentUser
 
     // ── Reactive inventory list (updates on filter change OR DB change) ───────
 

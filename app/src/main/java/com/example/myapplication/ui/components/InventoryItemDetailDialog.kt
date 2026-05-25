@@ -12,12 +12,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import coil.compose.AsyncImage
 import com.example.myapplication.data.local.entity.InventoryEntity
 import com.example.myapplication.domain.model.ItemCategory
 import com.example.myapplication.domain.model.ItemStatus
@@ -60,15 +58,13 @@ fun InventoryItemDetailDialog(
 
                 // Photo
                 if (!item.picture.isNullOrBlank() && File(item.picture).exists()) {
-                    AsyncImage(
-                        model = File(item.picture),
-                        contentDescription = null,
+                    EvidencePhoto(
+                        file = File(item.picture),
+                        picName = item.pic,
+                        timestampText = item.createdAt,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentScale = ContentScale.Crop
                     )
                 } else {
                     Box(
